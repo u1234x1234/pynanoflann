@@ -6,6 +6,7 @@ sys.path.append('./')
 import nanoflann
 from sklearn import neighbors
 from contextlib import contextmanager
+from uxils.profiling import Profiler
 
 
 @contextmanager
@@ -17,33 +18,33 @@ def timing(description):
     print(f'{description}: {ellapsed_time}')
 
 
-data = np.random.randint(-1000, 1000, size=(100000, 3)).astype(np.float32)
-queries = np.random.randint(-1000, 1000, size=(5000, 3)).astype(np.float32)
+def test(dim=3, n_neighbors=10):
+    data = np.random.uniform(0, 100, size=(10000000, dim)).astype(np.float32)
+    queries = np.random.uniform(0, 100, size=(50000, dim)).astype(np.float32)
 
-n_neighbors = 4
+    with timing('sklearn init'):
+        nn = neighbors.NearestNeighbors(n_neighbors=n_neighbors, algorithm='auto')
+        nn.fit(data)
 
-
-with timing('sklearn init'):
-    nn = neighbors.NearestNeighbors(n_neighbors=n_neighbors)
-    nn.fit(data)
-
-with timing('sklearn query'):
-    sk_result = nn.kneighbors(queries)
+    with timing('sklearn query'):
+        sk_res_dist, sk_res_idx = nn.kneighbors(queries)
 
 
-with timing('kd init'):
-    index = nanoflann.KDTree(data)
+    with timing('kd init'):
+        index = nanoflann.KDTree(data)
 
-with timing('kd query'):
-    kd_result = index.query(queries, n_neighbors=n_neighbors)
+    with timing('kd query'):
+        kd_res_dist, kd_res_idx = index.query(queries, n_neighbors=n_neighbors)
 
 
-print(sk_result[0].shape, kd_result[0].shape)
-print(sk_result[1].shape, kd_result[1].shape)
+    print('IDX diff: {} / {}'.format((kd_res_idx != sk_res_idx).sum(), kd_res_idx.size))
+    diff = kd_res_dist - (sk_res_dist ** 2)
+    print('Dist diff: {}'.format((diff ** 2).sum()))
 
-print('IDX diff: {} / {}'.format((kd_result[1] != sk_result[1]).sum(), kd_result[1].size))
-diff = kd_result[0] - (sk_result[0] ** 2)
-print('Dist diff: {}'.format((diff ** 2).sum()))
+    # allow small diff due to floating point computation
+    assert (kd_res_idx == sk_res_idx).mean() > 0.999
+    assert np.allclose(kd_res_dist, sk_res_dist**2)
 
-# assert (kd_result[1] == sk_result[1]).all() # idxs
-# assert np.allclose(kd_result[0], (sk_result[0] ** 2))
+
+if __name__ == '__main__':
+    test()
