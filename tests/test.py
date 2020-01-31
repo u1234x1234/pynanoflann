@@ -1,12 +1,11 @@
-import numpy as np
-
 import inspect
-import time
-import nanoflann
+
+import numpy as np
+import tabulate
+from contexttimer import Timer
 from sklearn import neighbors
 
-from contexttimer import Timer
-import tabulate
+import pynanoflann
 
 
 def test(search_type='knn', data_dim=3, n_index_points=2000, n_query_points=100, n_neighbors=10, metric='l2', output=False, radius=1):
@@ -23,8 +22,9 @@ def test(search_type='knn', data_dim=3, n_index_points=2000, n_query_points=100,
             sk_res_dist, sk_res_idx = nn.radius_neighbors(queries)
 
     with Timer() as kd_init:
-        nn = nanoflann.KDTree(n_neighbors=n_neighbors, metric=metric, radius=radius)
+        nn = pynanoflann.KDTree(n_neighbors=n_neighbors, metric=metric, radius=radius)
         nn.fit(data)
+
     with Timer() as kd_query:
         if search_type == 'knn':
             kd_res_dist, kd_res_idx = nn.kneighbors(queries)

@@ -12,8 +12,6 @@ cfg['include_dirs'] = ['/home/u1234x1234/libs/nanoflann/include/']
 #include <ctime>
 #include <cstdlib>
 #include <iostream>
-#include <memory>
-#include <typeinfo>
 
 using namespace std;
 using namespace nanoflann;
@@ -204,7 +202,7 @@ std::pair<vvf, vvi> KDTree::radius_neighbors(f_numpy_array_t array, float radius
     return std::make_pair(result_dists, result_idxs);
 }
 
-PYBIND11_MODULE(pynanoflann, m)
+PYBIND11_MODULE(pynanoflann_ext, m)
 {
     pybind11::class_<KDTree>(m, "KDTree")
         .def(pybind11::init<size_t, size_t, std::string, float>())

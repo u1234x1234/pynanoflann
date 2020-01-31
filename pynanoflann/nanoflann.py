@@ -1,14 +1,14 @@
-import numpy as np
-import cppimport
+"Sklearn interface to the native nanoflann module"
 import logging
-
-from sklearn.neighbors.base import NeighborsBase
-from sklearn.neighbors.base import KNeighborsMixin
-from sklearn.neighbors.base import RadiusNeighborsMixin
-from sklearn.neighbors.base import UnsupervisedMixin
+import numpy as np
+from sklearn.neighbors.base import (KNeighborsMixin, NeighborsBase,
+                                    RadiusNeighborsMixin, UnsupervisedMixin)
 from sklearn.utils.validation import check_is_fitted
 
-SUPPORTED_TYPES = [np.float32, np.float64]
+import pynanoflann_ext
+
+# TODO add np.float64 support
+SUPPORTED_TYPES = [np.float32]
 
 
 def _check_arg(points):
@@ -21,7 +21,7 @@ def _check_arg(points):
 class KDTree(NeighborsBase, KNeighborsMixin,
              RadiusNeighborsMixin, UnsupervisedMixin):
 
-    def __init__(self, n_neighbors=5, radius=1.0, 
+    def __init__(self, n_neighbors=5, radius=1.0,
                  leaf_size=10, metric='l2'):
         if metric == 'l2':  # nanoflann uses squared distances
             radius = radius ** 2
@@ -33,8 +33,7 @@ class KDTree(NeighborsBase, KNeighborsMixin,
         if metric not in ['l1', 'l2']:
             raise ValueError('Supported metrics: ["l1", "l2"]')
 
-        pynanoflann = cppimport.imp('pynanoflann')
-        self.index = pynanoflann.KDTree(n_neighbors, leaf_size, metric, radius)
+        self.index = pynanoflann_ext.KDTree(n_neighbors, leaf_size, metric, radius)
 
     def _fit(self, points: np.ndarray):
         _check_arg(points)
@@ -44,31 +43,31 @@ class KDTree(NeighborsBase, KNeighborsMixin,
         self.index.fit(points)
         self._fit_X = points
 
-    def kneighbors(self, points, n_neighbors=None):
+    def kneighbors(self, X, n_neighbors=None):
         check_is_fitted(self, ["_fit_X"], all_or_any=any)
-        _check_arg(points)
+        _check_arg(X)
 
         if n_neighbors is None:
             n_neighbors = self.n_neighbors
 
-        if points.shape[0] < n_neighbors:
+        if X.shape[0] < n_neighbors:
             raise ValueError(f"Expected n_neighbors <= n_samples,\
                  but n_samples = {points.shape[0]}, n_neighbors = {n_neighbors}")
 
-        dists, idxs = self.index.kneighbors(points, n_neighbors)
+        dists, idxs = self.index.kneighbors(X, n_neighbors)
         if self.metric == 'l2':  # nanoflann returns squared
             dists = np.sqrt(dists)
 
         return dists, idxs
 
-    def radius_neighbors(self, points, radius=None):
+    def radius_neighbors(self, X, radius=None, return_distance=True):
         check_is_fitted(self, ["_fit_X"], all_or_any=any)
-        _check_arg(points)
+        _check_arg(X)
 
         if radius is None:
             radius = self.radius
 
-        dists, idxs = self.index.radius_neighbors(points, radius)
+        dists, idxs = self.index.radius_neighbors(X, radius)
         idxs = np.array([np.array(x) for x in idxs])
 
         if self.metric == 'l2':  # nanoflann returns squared
@@ -76,4 +75,7 @@ class KDTree(NeighborsBase, KNeighborsMixin,
         else:
             dists = np.array([np.array(x).squeeze() for x in dists])
 
-        return dists, idxs
+        if return_distance:
+            return dists, idxs
+        else:
+            return idxs
