@@ -1,4 +1,5 @@
 import inspect
+import pytest
 
 import numpy as np
 import tabulate
@@ -31,6 +32,24 @@ def test(search_type='knn', data_dim=3, n_index_points=2000, n_query_points=100,
         else:
             kd_res_dist, kd_res_idx = nn.radius_neighbors(queries)
 
+    # allow small diff due to floating point computation
+    params = {}
+    for k in inspect.signature(test).parameters:
+        params[k] = locals().get(k)
+
+    if search_type == 'knn':
+        assert (kd_res_idx == sk_res_idx).mean() > 0.99, params
+        assert np.allclose(kd_res_dist, sk_res_dist), params
+    else:
+        # sklearn radius search does not allow to return sorted indices
+        # So let's check as an unordered sets
+        for k, s in zip(kd_res_idx, sk_res_idx):
+            if len(k):
+                rat = len(set(k).intersection(set(s))) / len(k)
+                assert rat > 0.99
+            else:
+                assert (k == s).all()
+
     if output and search_type == 'knn':
         diff = kd_res_dist - sk_res_dist
         data = [['sk', sk_init, sk_query], ['kd', kd_init, kd_query]]
@@ -39,33 +58,56 @@ def test(search_type='knn', data_dim=3, n_index_points=2000, n_query_points=100,
         print('Dist diff: {}'.format(diff.sum()))
         print('IDX diff: {} / {}'.format((kd_res_idx != sk_res_idx).sum(), kd_res_idx.size))
 
-    # allow small diff due to floating point computation
-    params = {}
-    for k in inspect.signature(test).parameters:
-        params[k] = locals().get(k)
 
-    if search_type == 'knn':
-        assert (kd_res_idx == sk_res_idx).mean() > 0.999, params
-        assert np.allclose(kd_res_dist, sk_res_dist), params
-    else:
-        # sklearn radius search does not allow to return sorted indices
-        # So let's check as an unordered sets
-        for k, s in zip(kd_res_idx, sk_res_idx):
-            if len(k):
-                rat = len(set(k).intersection(set(s))) / len(k)
-                assert rat > 0.999
-            else:
-                assert (k == s).all()
+def test_dimensions():
+    for dim in range(1, 10):
+        test(data_dim=dim, n_index_points=2000, n_query_points=100)
+
+
+def test_metric():
+    for m in ['l1', 'l2']:
+        test(metric=m)
+
+
+def test_search_type():
+    for t in ['knn', 'radius_search']:
+        test(search_type=t, radius=100)
+
+
+def test_incorrect_param():
+    with pytest.raises(ValueError):
+        nn = pynanoflann.KDTree(metric='l3')
+
+    nn = pynanoflann.KDTree(n_neighbors=10)
+    with pytest.raises(ValueError):
+        nn.fit(np.array(['str', 'qwe']))
+    with pytest.raises(ValueError):
+        nn.fit(np.random.uniform(size=(1, 2, 3)))
+
+    with pytest.raises(ValueError):
+        nn.fit(np.random.uniform(size=(5, 10)))
+        nn.kneighbors(np.random.uniform(size=(2, 10)))
+
+
+def test_radius():
+    nn = pynanoflann.KDTree(metric='l1', radius=1)
+    nn.fit(np.array([[1.], [2.], [3.], [4.]]).reshape((-1, 1)))
+    distances, indices = nn.radius_neighbors(np.array([[1.5]]).reshape((-1, 1)))
+    assert set(indices[0]) == {0, 1}
+
+    distances, indices = nn.radius_neighbors(np.array([[1.5]]).reshape((-1, 1)), radius=0.1)
+    assert set(indices[0]) == set()
+
+
+def test_warning():
+    with pytest.warns(Warning):
+        nn = pynanoflann.KDTree()
+        nn.fit(np.random.uniform(size=(100, 100)))
+
+
+def test_consistency_with_sklearn():
+    test(data_dim=4, n_index_points=1000000, n_query_points=50000, n_neighbors=10, metric='l2', output=True)
 
 
 if __name__ == '__main__':
-    for dim in range(1, 10):
-        test(data_dim=dim, n_index_points=2000, n_query_points=100)
-    for m in ['l1', 'l2']:
-        test(metric=m)
-    for t in ['knn', 'radius_search']:
-        test(search_type=t, radius=100)
-    test(search_type='radius_search', radius=1)
-
-    print('oK')
     test(data_dim=4, n_index_points=1000000, n_query_points=50000, n_neighbors=10, metric='l2', output=True)

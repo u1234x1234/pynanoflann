@@ -1,14 +1,13 @@
 "Sklearn interface to the native nanoflann module"
-import logging
+import warnings
 import numpy as np
 from sklearn.neighbors.base import (KNeighborsMixin, NeighborsBase,
                                     RadiusNeighborsMixin, UnsupervisedMixin)
 from sklearn.utils.validation import check_is_fitted
 
-import pynanoflann_ext
+import nanoflann_ext
 
-# TODO add np.float64 support
-SUPPORTED_TYPES = [np.float32]
+SUPPORTED_TYPES = [np.float32, np.float64]
 
 
 def _check_arg(points):
@@ -23,6 +22,11 @@ class KDTree(NeighborsBase, KNeighborsMixin,
 
     def __init__(self, n_neighbors=5, radius=1.0,
                  leaf_size=10, metric='l2'):
+
+        metric = metric.lower()
+        if metric not in ['l1', 'l2']:
+            raise ValueError('Supported metrics: ["l1", "l2"]')
+
         if metric == 'l2':  # nanoflann uses squared distances
             radius = radius ** 2
 
@@ -30,18 +34,19 @@ class KDTree(NeighborsBase, KNeighborsMixin,
             n_neighbors=n_neighbors, radius=radius,
             leaf_size=leaf_size, metric=metric)
 
-        if metric not in ['l1', 'l2']:
-            raise ValueError('Supported metrics: ["l1", "l2"]')
+    def _fit(self, X: np.ndarray):
+        _check_arg(X)
 
-        self.index = pynanoflann_ext.KDTree(n_neighbors, leaf_size, metric, radius)
+        if X.dtype == np.float32:
+            self.index = nanoflann_ext.KDTree32(self.n_neighbors, self.leaf_size, self.metric, self.radius)
+        else:
+            self.index = nanoflann_ext.KDTree64(self.n_neighbors, self.leaf_size, self.metric, self.radius)
 
-    def _fit(self, points: np.ndarray):
-        _check_arg(points)
-        if points.shape[1] > 64:
-            logging.warning('KD Tree structure is not a good choice for high dimensional spaces.'
-                            'Consider a more suitable search structure.')
-        self.index.fit(points)
-        self._fit_X = points
+        if X.shape[1] > 64:
+            warnings.warn('KD Tree structure is not a good choice for high dimensional spaces.'
+                          'Consider a more suitable search structure.')
+        self.index.fit(X)
+        self._fit_X = X
 
     def kneighbors(self, X, n_neighbors=None):
         check_is_fitted(self, ["_fit_X"], all_or_any=any)
@@ -50,9 +55,9 @@ class KDTree(NeighborsBase, KNeighborsMixin,
         if n_neighbors is None:
             n_neighbors = self.n_neighbors
 
-        if X.shape[0] < n_neighbors:
+        if self._fit_X.shape[0] < n_neighbors:
             raise ValueError(f"Expected n_neighbors <= n_samples,\
-                 but n_samples = {points.shape[0]}, n_neighbors = {n_neighbors}")
+                 but n_samples = {self._fit_X.shape[0]}, n_neighbors = {n_neighbors}")
 
         dists, idxs = self.index.kneighbors(X, n_neighbors)
         if self.metric == 'l2':  # nanoflann returns squared

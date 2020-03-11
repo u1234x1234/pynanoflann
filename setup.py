@@ -2,6 +2,7 @@ from setuptools import setup, Extension
 from setuptools.command.build_ext import build_ext
 import sys
 import setuptools
+import subprocess
 
 __version__ = '0.0.1'
 
@@ -13,6 +14,12 @@ class get_pybind_include(object):
     method can be invoked. """
 
     def __init__(self, user=False):
+        try:
+            import pybind11
+        except ImportError:
+            if subprocess.call([sys.executable, '-m', 'pip', 'install', 'pybind11']):
+                raise RuntimeError('pybind11 install failed.')
+
         self.user = user
 
     def __str__(self):
@@ -22,7 +29,7 @@ class get_pybind_include(object):
 
 ext_modules = [
     Extension(
-        'pynanoflann_ext',
+        'nanoflann_ext',
         ['src/pynanoflann.cpp'],
         include_dirs=[
             # Path to pybind11 headers
