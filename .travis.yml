@@ -1,0 +1,16 @@
+language: python
+python:
+  - "3.3"
+  - "3.4"
+  - "3.5"
+  - "3.6"
+  - "3.7"
+  - "3.8"
+cache: pip
+install:
+  - python setup.py install
+  - pip install -r requirements-test.txt
+script:
+  - python -m pytest -s --cov-report term-missing --cov pynanoflann -v
+after_success:
+  - coveralls
