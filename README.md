@@ -1,3 +1,6 @@
+[![Build Status](https://travis-ci.org/u1234x1234/pynanoflann.svg?branch=master)](https://travis-ci.org/u1234x1234/pynanoflann)
+[![Coverage Status](https://coveralls.io/repos/github/u1234x1234/pynanoflann/badge.svg?branch=master)](https://coveralls.io/github/u1234x1234/pynanoflann?branch=master)
+
 # pynanoflann
 
 Unofficial python wrapper to the [nanoflann](https://github.com/jlblancoc/nanoflann) library [1] with sklearn interface.
