@@ -8,6 +8,6 @@ install:
   - python setup.py install
   - pip install -r requirements-test.txt
 script:
-  - python -m pytest -s --cov-report term-missing --cov pynanoflann -v
+  - pytest --cov=./
 after_success:
-  - coveralls
+  - codecov

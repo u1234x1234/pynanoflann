@@ -1,5 +1,5 @@
 [![Build Status](https://travis-ci.org/u1234x1234/pynanoflann.svg?branch=master)](https://travis-ci.org/u1234x1234/pynanoflann)
-[![Coverage Status](https://coveralls.io/repos/github/u1234x1234/pynanoflann/badge.svg?branch=master)](https://coveralls.io/github/u1234x1234/pynanoflann?branch=master)
+[![codecov](https://codecov.io/gh/u1234x1234/pynanoflann/branch/master/graph/badge.svg)](https://codecov.io/gh/u1234x1234/pynanoflann)
 
 # pynanoflann
 
