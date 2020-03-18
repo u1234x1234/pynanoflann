@@ -47,7 +47,7 @@ python benchmark.py
 
 <img src="https://i.imgur.com/6Y6VrZb.png" width="1200">
 
-<img src="https://i.imgur.com/hbdDIFn.png" width="1200">
+<img src="https://i.imgur.com/c7OGvV8.png" width="1200">
 
 
 # Links

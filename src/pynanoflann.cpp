@@ -107,24 +107,24 @@ public:
             else
                 index = new KDTreeNumpyAdaptor<num_t, 1, nanoflann::metric_L1>(points, leaf_size);
             break;
-        // case 2:
-        //     if (metric == "l2")
-        //         index = new KDTreeNumpyAdaptor<num_t, 2>(points, leaf_size);
-        //     else
-        //         index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L1>(points, leaf_size);
-        //     break;
-        // case 3:
-        //     if (metric == "l2")
-        //         index = new KDTreeNumpyAdaptor<num_t, 3>(points, leaf_size);
-        //     else
-        //         index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L1>(points, leaf_size);
-        //     break;
-        // case 4:
-        //     if (metric == "l2")
-        //         index = new KDTreeNumpyAdaptor<num_t, 4>(points, leaf_size);
-        //     else
-        //         index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L1>(points, leaf_size);
-        //     break;
+        case 2:
+            if (metric == "l2")
+                index = new KDTreeNumpyAdaptor<num_t, 2>(points, leaf_size);
+            else
+                index = new KDTreeNumpyAdaptor<num_t, 2, nanoflann::metric_L1>(points, leaf_size);
+            break;
+        case 3:
+            if (metric == "l2")
+                index = new KDTreeNumpyAdaptor<num_t, 3>(points, leaf_size);
+            else
+                index = new KDTreeNumpyAdaptor<num_t, 3, nanoflann::metric_L1>(points, leaf_size);
+            break;
+        case 4:
+            if (metric == "l2")
+                index = new KDTreeNumpyAdaptor<num_t, 4>(points, leaf_size);
+            else
+                index = new KDTreeNumpyAdaptor<num_t, 4, nanoflann::metric_L1>(points, leaf_size);
+            break;
         default:
             // Arbitrary dim but works slightly slower
             if (metric == "l2")
