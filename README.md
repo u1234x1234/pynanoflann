@@ -15,7 +15,7 @@ It is a good choice for exact k-NN, radius searches in low dimensional spaces.
 pip install git+https://github.com/u1234x1234/pynanoflann
 ```
 
-# Usage
+# Basic Usage
 
 ```python
 import numpy as np
@@ -35,6 +35,32 @@ distances, indices = nn.radius_neighbors(queries)
 
 ```
 
+# Save, load
+
+If you need to save the model, there are two options:
+
+1. Save only the built index. In this case, data points are NOT stored in file. Very efficient, but inconvenient in some cases.
+```python
+
+kdtree.fit(X)
+kdtree.save_index('index.bin')
+
+prebuilt_kdtree = pynanoflann.KDTree()
+# Must use the same data on which the index was built.
+prebuilt_kdtree.fit(X, 'index.bin')
+```
+
+Please refer to the detailed [example](https://github.com/u1234x1234/pynanoflann/blob/master/tests/test_save_load.py#L8)
+
+2. Pickle the whole model with data points and the index. Less efficient, but convenient.
+```python
+kdtree.fit(X)
+with open('kdtree.pkl', 'wb') as out_file:
+    pickle.dump(kdtree, out_file)
+with open('kdtree.pkl', 'rb') as in_file:
+    unpickled_kdtree = pickle.load(in_file)
+```
+Please refer to the detailed [example](https://github.com/u1234x1234/pynanoflann/blob/master/tests/test_save_load.py#L43)
 
 # Performance
 
