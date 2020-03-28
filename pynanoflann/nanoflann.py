@@ -107,6 +107,19 @@ class KDTree(NeighborsBase, KNeighborsMixin,
         else:
             return idxs
 
+    def get_data(self, copy: bool = True) -> np.ndarray:
+        """Returns underlying data points. If copy is `False` then no modifications should be applied to the returned data.
+
+        Args:
+            copy: whether to make a copy.
+        """
+        check_is_fitted(self, ["_fit_X"], all_or_any=any)
+
+        if copy:
+            return self._fit_X.copy()
+        else:
+            return self._fit_X
+
     def save_index(self, path: str) -> int:
         "Save index to the binary file. NOTE: Data points are NOT stored."
         return self.index.save_index(path)

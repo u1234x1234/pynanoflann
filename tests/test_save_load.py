@@ -2,7 +2,9 @@ import pynanoflann
 import numpy as np
 import pickle
 import os
+import pytest
 from contexttimer import Timer
+from sklearn.exceptions import NotFittedError
 
 
 def test_index_save_load():
@@ -81,5 +83,24 @@ def test_pickle():
     assert un_un_tree.metric == 'l1'
 
 
-test_index_save_load()
-test_pickle()
+def test_get_data():
+    data = np.random.uniform(0, 100, size=(5000, 3)).astype(np.float32)
+
+    kdtree = pynanoflann.KDTree()
+    with pytest.raises(NotFittedError):
+        kdtree.get_data()
+
+    kdtree.fit(data)
+
+    pickled = pickle.dumps(kdtree)
+    unpickled_kdtree = pickle.loads(pickled)
+
+    X = unpickled_kdtree.get_data()
+    assert (X == data).all()
+    X *= 2
+    assert (unpickled_kdtree.get_data() == data).all()
+
+    X = unpickled_kdtree.get_data(copy=False)
+    assert (X == data).all()
+    X *= 2
+    assert (unpickled_kdtree.get_data() != data).all()
