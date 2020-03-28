@@ -1,13 +1,29 @@
 "Sklearn interface to the native nanoflann module"
+import copyreg
 import warnings
+from typing import Optional
+
+import nanoflann_ext
 import numpy as np
 from sklearn.neighbors.base import (KNeighborsMixin, NeighborsBase,
                                     RadiusNeighborsMixin, UnsupervisedMixin)
 from sklearn.utils.validation import check_is_fitted
 
-import nanoflann_ext
-
 SUPPORTED_TYPES = [np.float32, np.float64]
+
+
+def pickler(c):
+    X = c._fit_X if hasattr(c, '_fit_X') else None
+    return unpickler, (c.n_neighbors, c.radius, c.leaf_size, c.metric, X)
+
+
+def unpickler(n_neighbors, radius, leaf_size, metric, X):
+    # Recreate an kd-tree instance
+    tree = KDTree(n_neighbors, radius, leaf_size, metric)
+    # Unpickling of the fitted instance
+    if X is not None:
+        tree.fit(X)
+    return tree
 
 
 def _check_arg(points):
@@ -34,9 +50,14 @@ class KDTree(NeighborsBase, KNeighborsMixin,
             n_neighbors=n_neighbors, radius=radius,
             leaf_size=leaf_size, metric=metric)
 
-    def _fit(self, X: np.ndarray):
+    def fit(self, X: np.ndarray, index_path: Optional[str] = None):
+        """
+        Args:
+            X: np.ndarray data to use
+            index_path: str Path to a previously built index. Allows you to not rebuild index.
+                NOTE: Must use the same data on which the index was built.
+        """
         _check_arg(X)
-
         if X.dtype == np.float32:
             self.index = nanoflann_ext.KDTree32(self.n_neighbors, self.leaf_size, self.metric, self.radius)
         else:
@@ -45,7 +66,8 @@ class KDTree(NeighborsBase, KNeighborsMixin,
         if X.shape[1] > 64:
             warnings.warn('KD Tree structure is not a good choice for high dimensional spaces.'
                           'Consider a more suitable search structure.')
-        self.index.fit(X)
+
+        self.index.fit(X, index_path if index_path is not None else "")
         self._fit_X = X
 
     def kneighbors(self, X, n_neighbors=None):
@@ -84,3 +106,11 @@ class KDTree(NeighborsBase, KNeighborsMixin,
             return dists, idxs
         else:
             return idxs
+
+    def save_index(self, path: str) -> int:
+        "Save index to the binary file. NOTE: Data points are NOT stored."
+        return self.index.save_index(path)
+
+
+# Register pickling of non-trivial types
+copyreg.pickle(KDTree, pickler, unpickler)

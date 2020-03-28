@@ -24,6 +24,9 @@ class AbstractKDTree
 public:
     virtual void findNeighbors(nanoflann::KNNResultSet<num_t>, const num_t *query, nanoflann::SearchParams params) = 0;
     virtual size_t radiusSearch(const num_t *query, num_t radius, std::vector<std::pair<size_t, num_t>> &ret_matches, nanoflann::SearchParams params) = 0;
+    virtual int saveIndex(const std::string &path) const = 0;
+    virtual int loadIndex(const std::string &path) = 0;
+    virtual void buildIndex() = 0;
 };
 
 template <typename num_t, int DIM = -1, class Distance = nanoflann::metric_L2_Simple>
@@ -45,12 +48,15 @@ struct KDTreeNumpyAdaptor : public AbstractKDTree<num_t>
         dim = points.shape(1);
 
         index = new index_t(dim, *this, nanoflann::KDTreeSingleIndexAdaptorParams(leaf_max_size));
-        index->buildIndex();
     }
 
     ~KDTreeNumpyAdaptor()
     {
         delete index;
+    }
+    void buildIndex()
+    {
+        index->buildIndex();
     }
 
     void findNeighbors(nanoflann::KNNResultSet<num_t> result_set, const num_t *query, nanoflann::SearchParams params)
@@ -87,6 +93,28 @@ struct KDTreeNumpyAdaptor : public AbstractKDTree<num_t>
     {
         return false;
     }
+
+    int saveIndex(const std::string &path) const
+    {
+        FILE *f = fopen(path.c_str(), "wb");
+        if (!f) {
+            throw std::runtime_error("Error writing index file!");
+        }
+        index->saveIndex(f);
+        int ret_val = fclose(f);
+        return ret_val;
+    }
+
+    int loadIndex(const std::string &path)
+    {
+    	FILE *f = fopen(path.c_str(), "rb");
+		if (!f)
+        {
+            throw std::runtime_error("Error reading index file!");
+        }
+		index->loadIndex(f);
+		return fclose(f);
+    }
 };
 
 template<typename num_t>
@@ -96,7 +124,7 @@ public:
     using f_numpy_array_t = pybind11::array_t<num_t, pybind11::array::c_style | pybind11::array::forcecast>;
  
     KDTree(size_t n_neighbors = 10, size_t leaf_size = 10, std::string metric = "l2", float radius = 1.0f);
-    void fit(f_numpy_array_t points)
+    void fit(f_numpy_array_t points, std::string index_path)
     {
         // Dynamic template instantiation for the popular use cases
         switch (points.shape(1))
@@ -133,6 +161,14 @@ public:
                 index = new KDTreeNumpyAdaptor<num_t, -1, nanoflann::metric_L1>(points, leaf_size);
             break;
         }
+        if (index_path.size())
+        {
+            index->loadIndex(index_path);
+        }
+        else
+        {
+            index->buildIndex();
+        }
     }
 
     std::pair<f_numpy_array_t, i_numpy_array_t> kneighbors(f_numpy_array_t array, size_t n_neighbors)
@@ -161,6 +197,7 @@ public:
     }
 
     std::pair<std::vector<std::vector<num_t>>, vvi> radius_neighbors(f_numpy_array_t, float radius = 1.0f);
+    int save_index(const std::string &path);
 
 private:
     AbstractKDTree<num_t> *index;
@@ -174,7 +211,6 @@ KDTree<num_t>::KDTree(size_t n_neighbors, size_t leaf_size, std::string metric, 
     : n_neighbors(n_neighbors), leaf_size(leaf_size), metric(metric), radius(radius)
 {
 }
-
 
 template<typename num_t>
 std::pair<std::vector<std::vector<num_t>>, vvi> KDTree<num_t>::radius_neighbors(f_numpy_array_t array, float radius)
@@ -204,17 +240,27 @@ std::pair<std::vector<std::vector<num_t>>, vvi> KDTree<num_t>::radius_neighbors(
     return std::make_pair(result_dists, result_idxs);
 }
 
+template<typename num_t>
+int KDTree<num_t>::save_index(const std::string& path)
+{
+    return index->saveIndex(path);
+}
+
+
 PYBIND11_MODULE(nanoflann_ext, m)
 {
     pybind11::class_<KDTree<float>>(m, "KDTree32")
         .def(pybind11::init<size_t, size_t, std::string, float>())
         .def("fit", &KDTree<float>::fit)
         .def("kneighbors", &KDTree<float>::kneighbors)
-        .def("radius_neighbors", &KDTree<float>::radius_neighbors);
+        .def("radius_neighbors", &KDTree<float>::radius_neighbors)
+        .def("save_index", &KDTree<float>::save_index);
 
     pybind11::class_<KDTree<double>>(m, "KDTree64")
         .def(pybind11::init<size_t, size_t, std::string, float>())
         .def("fit", &KDTree<double>::fit)
         .def("kneighbors", &KDTree<double>::kneighbors)
-        .def("radius_neighbors", &KDTree<double>::radius_neighbors);
+        .def("radius_neighbors", &KDTree<double>::radius_neighbors)
+        .def("save_index", &KDTree<double>::save_index);
+
 }
