@@ -52,7 +52,7 @@ prebuilt_kdtree.fit(X, 'index.bin')
 
 Please refer to the detailed [example](https://github.com/u1234x1234/pynanoflann/blob/master/tests/test_save_load.py#L8)
 
-2. Pickle the whole model with data points and the index. Less efficient, but convenient.
+2. Pickle the whole model with data points. Less efficient, but convenient.
 ```python
 kdtree.fit(X)
 with open('kdtree.pkl', 'wb') as out_file:
