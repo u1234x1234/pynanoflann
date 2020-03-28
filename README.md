@@ -12,7 +12,7 @@ It is a good choice for exact k-NN, radius searches in low dimensional spaces.
 # Install
 
 ```
-pip install git+https://github.com/u1234x1234/pynanoflann.git@0.0.1
+pip install git+https://github.com/u1234x1234/pynanoflann.git@0.0.2
 ```
 
 # Basic Usage
