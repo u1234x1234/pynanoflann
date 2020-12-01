@@ -27,6 +27,7 @@ public:
     virtual int saveIndex(const std::string &path) const = 0;
     virtual int loadIndex(const std::string &path) = 0;
     virtual void buildIndex() = 0;
+    virtual ~AbstractKDTree() {};
 };
 
 template <typename num_t, int DIM = -1, class Distance = nanoflann::metric_L2_Simple>
@@ -194,6 +195,9 @@ public:
         }
 
         return std::make_pair(results_dists, results_idxs);
+    }
+    ~KDTree() {
+        delete index;
     }
 
     std::pair<std::vector<std::vector<num_t>>, vvi> radius_neighbors(f_numpy_array_t, float radius = 1.0f);
