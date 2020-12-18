@@ -5,8 +5,8 @@ from typing import Optional
 
 import nanoflann_ext
 import numpy as np
-from sklearn.neighbors.base import (KNeighborsMixin, NeighborsBase,
-                                    RadiusNeighborsMixin, UnsupervisedMixin)
+from sklearn.neighbors._base import (KNeighborsMixin, NeighborsBase,
+                                     RadiusNeighborsMixin, UnsupervisedMixin)
 from sklearn.utils.validation import check_is_fitted
 
 SUPPORTED_TYPES = [np.float32, np.float64]
