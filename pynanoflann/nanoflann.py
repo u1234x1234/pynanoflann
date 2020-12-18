@@ -70,7 +70,7 @@ class KDTree(NeighborsBase, KNeighborsMixin,
         self.index.fit(X, index_path if index_path is not None else "")
         self._fit_X = X
 
-    def kneighbors(self, X, n_neighbors=None):
+    def kneighbors(self, X, n_neighbors=None, n_jobs=1):
         check_is_fitted(self, ["_fit_X"], all_or_any=any)
         _check_arg(X)
 
@@ -81,7 +81,11 @@ class KDTree(NeighborsBase, KNeighborsMixin,
             raise ValueError(f"Expected n_neighbors <= n_samples,\
                  but n_samples = {self._fit_X.shape[0]}, n_neighbors = {n_neighbors}")
 
-        dists, idxs = self.index.kneighbors(X, n_neighbors)
+        if n_jobs == 1:
+            dists, idxs = self.index.kneighbors(X, n_neighbors)
+        else:
+            dists, idxs = self.index.kneighbors_multithreaded(X, n_neighbors, n_jobs)
+
         if self.metric == 'l2':  # nanoflann returns squared
             dists = np.sqrt(dists)
 
