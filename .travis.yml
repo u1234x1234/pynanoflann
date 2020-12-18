@@ -4,6 +4,8 @@ python:
   - "3.8"
 cache: pip
 install:
+  - pip install numpy
+  - pip install scipy
   - python setup.py install
   - pip install -r requirements-test.txt
 script:

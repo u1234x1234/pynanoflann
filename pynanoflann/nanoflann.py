@@ -6,7 +6,7 @@ from typing import Optional
 import nanoflann_ext
 import numpy as np
 from sklearn.neighbors._base import (KNeighborsMixin, NeighborsBase,
-                                     RadiusNeighborsMixin, UnsupervisedMixin)
+                                     RadiusNeighborsMixin)
 from sklearn.utils.validation import check_is_fitted
 
 SUPPORTED_TYPES = [np.float32, np.float64]
@@ -34,7 +34,7 @@ def _check_arg(points):
 
 
 class KDTree(NeighborsBase, KNeighborsMixin,
-             RadiusNeighborsMixin, UnsupervisedMixin):
+             RadiusNeighborsMixin):
 
     def __init__(self, n_neighbors=5, radius=1.0,
                  leaf_size=10, metric='l2'):

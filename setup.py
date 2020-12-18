@@ -118,7 +118,7 @@ setup(
     ext_modules=ext_modules,
     packages=['pynanoflann'],
     install_requires=['pybind11>=2.4', 'scikit-learn>=0.19'],
-    setup_requires=['pybind11>=2.4', "numpy>=1.16.5"],
+    setup_requires=['pybind11>=2.4'],
     cmdclass={'build_ext': BuildExt},
     zip_safe=False,
 )
