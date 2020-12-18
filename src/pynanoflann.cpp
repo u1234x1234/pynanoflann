@@ -276,10 +276,11 @@ std::pair<pybind11::array_t<num_t, pybind11::array::c_style | pybind11::array::f
     };
 
     std::vector<std::thread> threadPool;
+    size_t batchSize = std::ceil(static_cast<float>(n_points) / nThreads);
     for (size_t i = 0; i < nThreads; i++)
     {
-        size_t startIdx = i * (n_points / nThreads);
-        size_t endIdx = (i + 1) * (n_points / nThreads);
+        size_t startIdx = i * batchSize;
+        size_t endIdx = (i + 1) * batchSize;
         endIdx = std::min(endIdx, n_points);
         threadPool.push_back(std::thread(searchBatch, startIdx, endIdx));
     }
