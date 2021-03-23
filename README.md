@@ -62,12 +62,12 @@ with open('kdtree.pkl', 'rb') as in_file:
 ```
 Please refer to the detailed [example](https://github.com/u1234x1234/pynanoflann/blob/master/tests/test_save_load.py#L43)
 
-# Multicore paralellization
+# Multicore parallelization
 
-* Query paralellization:
+* Query parallelization:
 [Example](https://github.com/u1234x1234/pynanoflann/blob/master/tests/test_multithreaded.py)
 
-* Simultaneous indexing+querying paralellization:
+* Simultaneous indexing+querying parallelization:
 [Example](https://github.com/u1234x1234/pynanoflann/blob/master/tests/test_batched_kneighbors.py),
 [Discussion](https://github.com/u1234x1234/pynanoflann/issues/3)
 
