@@ -103,12 +103,12 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
             radius = self.radius
 
         dists, idxs = self.index.radius_neighbors(X, radius)
-        idxs = np.array([np.array(x) for x in idxs])
+        idxs = [np.array(x) for x in idxs]
 
         if self.metric == "l2":  # nanoflann returns squared
-            dists = np.array([np.sqrt(np.array(x)).squeeze() for x in dists])
+            dists = [np.sqrt(np.array(x)).squeeze() for x in dists]
         else:
-            dists = np.array([np.array(x).squeeze() for x in dists])
+            dists = [np.array(x).squeeze() for x in dists]
 
         if return_distance:
             return dists, idxs
