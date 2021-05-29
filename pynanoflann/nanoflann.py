@@ -95,14 +95,18 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         return dists, idxs
 
-    def radius_neighbors(self, X, radius=None, return_distance=True):
+    def radius_neighbors(self, X, radius=None, return_distance=True, n_jobs=1):
         check_is_fitted(self, ["_fit_X"], all_or_any=any)
         _check_arg(X)
 
         if radius is None:
             radius = self.radius
 
-        dists, idxs = self.index.radius_neighbors(X, radius)
+        if n_jobs == 1:
+            dists, idxs = self.index.radius_neighbors(X, radius)
+        else:
+            dists, idxs = self.index.radius_neighbors_multithreaded(X, radius, n_jobs)
+
         idxs = [np.array(x, dtype=np.int64) for x in idxs]
 
         if self.metric == "l2":  # nanoflann returns squared
@@ -112,8 +116,8 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         if return_distance:
             return dists, idxs
-        else:
-            return idxs
+
+        return idxs
 
     def get_data(self, copy: bool = True) -> np.ndarray:
         """Returns underlying data points. If copy is `False` then no modifications should be applied to the returned data.

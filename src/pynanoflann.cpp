@@ -6,11 +6,11 @@ setup_pybind11(cfg)
 #include <pybind11/numpy.h>
 #include <pybind11/pybind11.h>
 #include <pybind11/stl.h>
-#include <nanoflann.hpp>
 
 #include <cstdlib>
 #include <ctime>
 #include <iostream>
+#include <nanoflann.hpp>
 #include <thread>
 
 using namespace std;
@@ -171,41 +171,23 @@ class KDTree {
     }
   }
 
-  std::pair<f_numpy_array_t, i_numpy_array_t> kneighbors(f_numpy_array_t array,
-                                                         size_t n_neighbors) {
-    auto mat = array.template unchecked<2>();
-    const num_t *query_data = mat.data(0, 0);
-    size_t n_points = mat.shape(0);
-    size_t dim = mat.shape(1);
-
-    nanoflann::KNNResultSet<num_t> resultSet(n_neighbors);
-    f_numpy_array_t results_dists({n_points, n_neighbors});
-    i_numpy_array_t results_idxs({n_points, n_neighbors});
-
-    // https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html#direct-access
-    num_t *res_dis_data =
-        results_dists.template mutable_unchecked<2>().mutable_data(0, 0);
-    size_t *res_idx_data =
-        results_idxs.template mutable_unchecked<2>().mutable_data(0, 0);
-
-    for (size_t i = 0; i < n_points; i++) {
-      const num_t *query_point = &query_data[i * dim];
-      resultSet.init(&res_idx_data[i * n_neighbors],
-                     &res_dis_data[i * n_neighbors]);
-      index->findNeighbors(resultSet, query_point, nanoflann::SearchParams());
-    }
-
-    return std::make_pair(results_dists, results_idxs);
-  }
   ~KDTree() { delete index; }
+
+  std::pair<f_numpy_array_t, i_numpy_array_t> kneighbors(f_numpy_array_t array,
+                                                         size_t n_neighbors);
+  std::pair<f_numpy_array_t, i_numpy_array_t> kneighbors_multithreaded(
+      f_numpy_array_t array, size_t n_neighbors, size_t nThreads = 1);
 
   std::pair<std::vector<std::vector<num_t>>, vvi> radius_neighbors(
       f_numpy_array_t, float radius = 1.0f);
-  std::pair<f_numpy_array_t, i_numpy_array_t> kneighbors_multithreaded(
-      f_numpy_array_t array, size_t n_neighbors, size_t nThreads = 1);
+  std::pair<std::vector<std::vector<num_t>>, vvi>
+  radius_neighbors_multithreaded(f_numpy_array_t, float radius = 1.0f,
+                                 size_t nThreads = 1);
+
   int save_index(const std::string &path);
 
   AbstractKDTree<num_t> *index;
+
  private:
   size_t n_neighbors, leaf_size;
   std::string metric;
@@ -219,6 +201,36 @@ KDTree<num_t>::KDTree(size_t n_neighbors, size_t leaf_size, std::string metric,
       leaf_size(leaf_size),
       metric(metric),
       radius(radius) {}
+
+template <typename num_t>
+std::pair<pybind11::array_t<num_t, pybind11::array::c_style |
+                                       pybind11::array::forcecast>,
+          i_numpy_array_t>
+KDTree<num_t>::kneighbors(f_numpy_array_t array, size_t n_neighbors) {
+  auto mat = array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  size_t n_points = mat.shape(0);
+  size_t dim = mat.shape(1);
+
+  nanoflann::KNNResultSet<num_t> resultSet(n_neighbors);
+  f_numpy_array_t results_dists({n_points, n_neighbors});
+  i_numpy_array_t results_idxs({n_points, n_neighbors});
+
+  // https://pybind11.readthedocs.io/en/stable/advanced/pycpp/numpy.html#direct-access
+  num_t *res_dis_data =
+      results_dists.template mutable_unchecked<2>().mutable_data(0, 0);
+  size_t *res_idx_data =
+      results_idxs.template mutable_unchecked<2>().mutable_data(0, 0);
+
+  for (size_t i = 0; i < n_points; i++) {
+    const num_t *query_point = &query_data[i * dim];
+    resultSet.init(&res_idx_data[i * n_neighbors],
+                   &res_dis_data[i * n_neighbors]);
+    index->findNeighbors(resultSet, query_point, nanoflann::SearchParams());
+  }
+
+  return std::make_pair(results_dists, results_idxs);
+}
 
 template <typename num_t>
 std::pair<std::vector<std::vector<num_t>>, vvi> KDTree<num_t>::radius_neighbors(
@@ -245,6 +257,52 @@ std::pair<std::vector<std::vector<num_t>>, vvi> KDTree<num_t>::radius_neighbors(
   }
   // TODO Copy will be made
   return std::make_pair(result_dists, result_idxs);
+}
+
+template <typename num_t>
+std::pair<std::vector<std::vector<num_t>>, vvi>
+KDTree<num_t>::radius_neighbors_multithreaded(f_numpy_array_t array,
+                                              float radius, size_t nThreads) {
+  auto mat = array.template unchecked<2>();
+  const num_t *query_data = mat.data(0, 0);
+  size_t n_points = mat.shape(0);
+  size_t dim = mat.shape(1);
+  const num_t search_radius = static_cast<num_t>(radius);
+
+  std::vector<std::vector<num_t>> results_dists(n_points);
+  std::vector<std::vector<size_t>> results_idxs(n_points);
+
+  auto searchBatch = [&](size_t startIdx, size_t endIdx) {
+    std::vector<std::pair<size_t, num_t>> ret_matches;
+    const num_t *query_point;
+
+    for (size_t i = startIdx; i < endIdx; i++) {
+      query_point = &query_data[i * dim];
+      const size_t nMatches =
+          index->radiusSearch(&query_point[0], search_radius, ret_matches,
+                              nanoflann::SearchParams());
+
+      for (size_t j = 0; j < nMatches; j++) {
+        results_idxs[i].push_back(ret_matches[j].first);
+        results_dists[i].push_back(ret_matches[j].second);
+      }
+    }
+  };
+
+  std::vector<std::thread> threadPool;
+  size_t batchSize = std::ceil(static_cast<float>(n_points) / nThreads);
+  for (size_t i = 0; i < nThreads; i++) {
+    size_t startIdx = i * batchSize;
+    size_t endIdx = (i + 1) * batchSize;
+    endIdx = std::min(endIdx, n_points);
+    threadPool.push_back(std::thread(searchBatch, startIdx, endIdx));
+  }
+  for (auto &t : threadPool) {
+    t.join();
+  }
+
+  // TODO Copy will be made
+  return std::make_pair(results_dists, results_idxs);
 }
 
 template <typename num_t>
@@ -295,13 +353,14 @@ int KDTree<num_t>::save_index(const std::string &path) {
 }
 
 template <typename T>
-using f_numpy_array = pybind11::array_t<T, pybind11::array::c_style | pybind11::array::forcecast>;
+using f_numpy_array =
+    pybind11::array_t<T, pybind11::array::c_style | pybind11::array::forcecast>;
 
 template <typename T>
-std::pair<pybind11::list, pybind11::list>
-batched_kneighbors(pybind11::list index_points, pybind11::list query_points,
-                   size_t n_neighbors, std::string metric, size_t leaf_size, size_t n_threads=1) {
-
+std::pair<pybind11::list, pybind11::list> batched_kneighbors(
+    pybind11::list index_points, pybind11::list query_points,
+    size_t n_neighbors, std::string metric, size_t leaf_size,
+    size_t n_threads = 1) {
   // Allocate memory before any computations
   size_t n_batches = index_points.size();
   pybind11::list g_results_dists;
@@ -320,23 +379,30 @@ batched_kneighbors(pybind11::list index_points, pybind11::list query_points,
   auto SearchBatch = [&](size_t startIdx, size_t endIdx) {
     for (size_t j = startIdx; j < endIdx; j++) {
       KDTree<T> tree(n_neighbors, leaf_size, metric);
-      f_numpy_array<T> batch_index = pybind11::cast<pybind11::array>(index_points[j]);
-      f_numpy_array<T> batch_query = pybind11::cast<pybind11::array>(query_points[j]);
+      f_numpy_array<T> batch_index =
+          pybind11::cast<pybind11::array>(index_points[j]);
+      f_numpy_array<T> batch_query =
+          pybind11::cast<pybind11::array>(query_points[j]);
       tree.fit(batch_index, "");
 
       auto mat = batch_query.template unchecked<2>();
       const T *query_data = mat.data(0, 0);
 
-      f_numpy_array<T> b_results_dists = pybind11::cast<pybind11::array>(g_results_dists[j]);
-      i_numpy_array_t b_results_idxs = pybind11::cast<pybind11::array>(g_results_idxs[j]);
-      T *res_dis_data = b_results_dists.template mutable_unchecked<2>().mutable_data(0, 0);
-      size_t *res_idx_data = b_results_idxs.template mutable_unchecked<2>().mutable_data(0, 0);
-  
+      f_numpy_array<T> b_results_dists =
+          pybind11::cast<pybind11::array>(g_results_dists[j]);
+      i_numpy_array_t b_results_idxs =
+          pybind11::cast<pybind11::array>(g_results_idxs[j]);
+      T *res_dis_data =
+          b_results_dists.template mutable_unchecked<2>().mutable_data(0, 0);
+      size_t *res_idx_data =
+          b_results_idxs.template mutable_unchecked<2>().mutable_data(0, 0);
+
       size_t n_points = batch_query.shape(0);
       size_t dim = batch_query.shape(1);
       for (size_t i = 0; i < n_points; i++) {
         const T *query_point = &query_data[i * dim];
-        tree.index->knnSearch(query_point, n_neighbors, &res_idx_data[i * n_neighbors],
+        tree.index->knnSearch(query_point, n_neighbors,
+                              &res_idx_data[i * n_neighbors],
                               &res_dis_data[i * n_neighbors]);
       }
     }
@@ -364,6 +430,8 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("kneighbors", &KDTree<float>::kneighbors)
       .def("kneighbors_multithreaded", &KDTree<float>::kneighbors_multithreaded)
       .def("radius_neighbors", &KDTree<float>::radius_neighbors)
+      .def("radius_neighbors_multithreaded",
+           &KDTree<float>::radius_neighbors_multithreaded)
       .def("save_index", &KDTree<float>::save_index);
 
   pybind11::class_<KDTree<double>>(m, "KDTree64")
@@ -373,6 +441,8 @@ PYBIND11_MODULE(nanoflann_ext, m) {
       .def("kneighbors_multithreaded",
            &KDTree<double>::kneighbors_multithreaded)
       .def("radius_neighbors", &KDTree<double>::radius_neighbors)
+      .def("radius_neighbors_multithreaded",
+           &KDTree<double>::radius_neighbors_multithreaded)
       .def("save_index", &KDTree<double>::save_index);
 
   m.def("batched_kneighbors32", &batched_kneighbors<float>,
