@@ -99,6 +99,17 @@ def test_radius():
     assert set(indices[0]) == set()
 
 
+def test_radius_arg_passing():
+    nn = pynanoflann.KDTree(metric='l2', radius=2)
+    index = np.array([[1.], [2.], [3.], [4.]]).reshape(-1, 1)
+    nn.fit(index)
+    query = np.array([[0.1]]).reshape(-1, 1)
+    _, indices1 = nn.radius_neighbors(query)
+    _, indices2 = nn.radius_neighbors(query, radius=2)
+    assert (indices1[0] == indices2[0]).all()
+    assert set(indices1[0]) == {0, 1}
+
+
 def test_warning():
     with pytest.warns(Warning):
         nn = pynanoflann.KDTree()
@@ -110,4 +121,5 @@ def test_consistency_with_sklearn():
 
 
 if __name__ == '__main__':
-    test(data_dim=4, n_index_points=1000000, n_query_points=50000, n_neighbors=10, metric='l2', output=True)
+    # test(data_dim=4, n_index_points=1000000, n_query_points=50000, n_neighbors=10, metric='l2', output=True)
+    test_radius_arg_passing()

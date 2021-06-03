@@ -101,6 +101,8 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         if radius is None:
             radius = self.radius
+        elif self.metric == "l2":
+            radius = radius ** 2  # nanoflann internally uses squared distances
 
         if n_jobs == 1:
             dists, idxs = self.index.radius_neighbors(X, radius)
