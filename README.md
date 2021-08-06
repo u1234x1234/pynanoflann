@@ -3,7 +3,7 @@
 
 # pynanoflann
 
-Unofficial python wrapper to the [nanoflann](https://github.com/jlblancoc/nanoflann) library [1] with sklearn interface and additional multithreaded capabilities.
+Unofficial python wrapper to the [nanoflann](https://github.com/jlblancoc/nanoflann) library [1] with sklearn interface and additional [multithreaded capabilities](#multicore-parallelization).
 
 nanoflann implementation of [k-d tree](https://en.wikipedia.org/wiki/K-d_tree) provides one of the best performance for many k-nearest neighbour problems [2].
 
@@ -64,6 +64,8 @@ Please refer to the detailed [example](https://github.com/u1234x1234/pynanoflann
 
 # Multicore parallelization
 
+Implemented on C++ side to reduce python's `multiprocessing` overhead.
+
 * Query parallelization:
 [Example](https://github.com/u1234x1234/pynanoflann/blob/master/tests/test_multithreaded.py)
 
@@ -89,3 +91,4 @@ python benchmark.py
 
 1. Blanco, Jose Luis and Rai, Pranjal Kumar, 2014, nanoflann: a C++ header-only fork of FLANN, a library for Nearest Neighbor ({NN}) with KD-trees.
 2. Vermeulen, J.L., Hillebrand, A. and Geraerts, R., 2017. A comparative study of k‐nearest neighbour techniques in crowd simulation.
+3. [OpenFLANN](https://github.com/LimHyungTae/OpenFLANN) Performance comparison between [PCL](https://pointclouds.org/documentation/tutorials/kdtree_search.html), [nanoflann](https://github.com/jlblancoc/nanoflann), [picoflann](https://github.com/rmsalinas/picoflann)
