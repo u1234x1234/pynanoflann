@@ -9,7 +9,7 @@ from sklearn import neighbors
 import pynanoflann
 
 
-def test(search_type='knn', data_dim=3, n_index_points=2000, n_query_points=100, n_neighbors=10, metric='l2', output=False, radius=1):
+def test(search_type='knn', data_dim=3, n_index_points=2000, n_query_points=100, n_neighbors=10, metric='l2', output=False, radius=1, root_dist=True):
     data = np.random.uniform(0, 100, size=(n_index_points, data_dim)).astype(np.float32)
     queries = np.random.uniform(0, 100, size=(n_query_points, data_dim)).astype(np.float32)
 
@@ -23,7 +23,11 @@ def test(search_type='knn', data_dim=3, n_index_points=2000, n_query_points=100,
             sk_res_dist, sk_res_idx = nn.radius_neighbors(queries)
 
     with Timer() as kd_init:
-        nn = pynanoflann.KDTree(n_neighbors=n_neighbors, metric=metric, radius=radius)
+        if root_dist:
+            nn = pynanoflann.KDTree(n_neighbors=n_neighbors, metric=metric, radius=radius, root_dist=root_dist)
+        else:
+            nn = pynanoflann.KDTree(n_neighbors=n_neighbors, metric=metric, radius=radius**2, root_dist=root_dist)
+
         nn.fit(data)
 
     with Timer() as kd_query:
@@ -37,6 +41,12 @@ def test(search_type='knn', data_dim=3, n_index_points=2000, n_query_points=100,
     for k in inspect.signature(test).parameters:
         params[k] = locals().get(k)
 
+    if not root_dist:
+        if search_type == 'knn':
+            kd_res_dist = np.sqrt(kd_res_dist)
+        else:
+            kd_res_dist = [np.sqrt(np.array(x)) for x in kd_res_dist]
+        
     if search_type == 'knn':
         assert (kd_res_idx == sk_res_idx).mean() > 0.99, params
         assert np.allclose(kd_res_dist, sk_res_dist), params
@@ -118,6 +128,7 @@ def test_warning():
 
 def test_consistency_with_sklearn():
     test(data_dim=4, n_index_points=1000000, n_query_points=50000, n_neighbors=10, metric='l2', output=True)
+    test(data_dim=4, n_index_points=1000000, n_query_points=50000, n_neighbors=10, metric='l2', output=True, root_dist=False)
 
 
 if __name__ == '__main__':
