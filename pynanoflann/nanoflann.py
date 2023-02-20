@@ -33,18 +33,19 @@ def _check_arg(points):
 
 
 class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
-    def __init__(self, n_neighbors=5, radius=1.0, leaf_size=10, metric="l2"):
+    def __init__(self, n_neighbors=5, radius=1.0, leaf_size=10, metric="l2", root_dist=True):
 
         metric = metric.lower()
         if metric not in ["l1", "l2"]:
             raise ValueError('Supported metrics: ["l1", "l2"]')
 
-        if metric == "l2":  # nanoflann uses squared distances
+        if metric == "l2" and root_dist:  # nanoflann uses squared distances
             radius = radius ** 2
 
         super().__init__(
             n_neighbors=n_neighbors, radius=radius, leaf_size=leaf_size, metric=metric
         )
+        self.root_dist = root_dist
 
     def fit(self, X: np.ndarray, index_path: Optional[str] = None):
         """
@@ -90,7 +91,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
         else:
             dists, idxs = self.index.kneighbors_multithreaded(X, n_neighbors, n_jobs)
 
-        if self.metric == "l2":  # nanoflann returns squared
+        if self.metric == "l2" and self.root_dist:  # nanoflann returns squared
             dists = np.sqrt(dists)
 
         return dists, idxs
@@ -101,7 +102,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         if radius is None:
             radius = self.radius
-        elif self.metric == "l2":
+        elif self.metric == "l2" and self.root_dist:
             radius = radius ** 2  # nanoflann internally uses squared distances
 
         if n_jobs == 1:
@@ -111,7 +112,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
         idxs = [np.array(x, dtype=np.int64) for x in idxs]
 
-        if self.metric == "l2":  # nanoflann returns squared
+        if self.metric == "l2" and self.root_dist:  # nanoflann returns squared
             dists = [np.sqrt(np.array(x)) for x in dists]
         else:
             dists = [np.array(x) for x in dists]
@@ -140,7 +141,7 @@ class KDTree(NeighborsBase, KNeighborsMixin, RadiusNeighborsMixin):
 
 
 def batched_kneighbors(
-    X_index, X_query, n_neighbors=5, metric="l2", leaf_size=10, n_jobs=1
+    X_index, X_query, n_neighbors=5, metric="l2", leaf_size=10, n_jobs=1, root_dist=True
 ):
     """
 
@@ -167,7 +168,7 @@ def batched_kneighbors(
             list(X_index), list(X_query), n_neighbors, metric, leaf_size, n_jobs
         )
 
-    if metric == "l2":  # nanoflann returns squared
+    if metric == "l2" and root_dist:  # nanoflann returns squared
         g_d = [np.sqrt(x) for x in g_d]
 
     return g_d, g_i
